@@ -47,10 +47,13 @@
 #
 
 class luks(
-  $ensure  = latest,
-  $package = 'cryptsetup',
-) {
+  String $ensure = $luks::params::version,
+  Array $package = $luks::params::packages,
+) inherits luks::params {
 
-  ensure_packages($package, {'ensure' => $ensure})
+  ensure_packages($package, {
+    'ensure' => $ensure
+    }
+  )
 
 }

@@ -51,7 +51,7 @@ define luks::device(
   $force_format = false,
 ) {
   # Ensure LUKS is available.
-  include luks
+  require luks
 
   # Setting up unique variable names for the resources.
   $devmapper = "/dev/mapper/${mapper}"
@@ -60,14 +60,14 @@ define luks::device(
   $luks_keychange = "luks-keychange-${name}"
 
   if $base64 {
-    $echo_cmd = 'echo -n "$(puppet node decrypt --env CRYPTKEY)" | /usr/bin/base64 -d'
+    $echo_cmd = '/usr/bin/echo -n "$CRYPTKEY" | /usr/bin/base64 -d'
   } else {
-    $echo_cmd = 'echo -n "$(puppet node decrypt --env CRYPTKEY)"'
+    $echo_cmd = '/usr/bin/echo -n "$CRYPTKEY"'
   }
 
   $cryptsetup_cmd = '/sbin/cryptsetup'
   $cryptsetup_key_cmd = "${echo_cmd} | ${cryptsetup_cmd} --key-file -"
-  $master_key_cmd = "dmsetup table --target crypt --showkey ${devmapper} | cut -f5 -d\" \" | xxd -r -p"
+  $master_key_cmd = "/usr/sbin/dmsetup table --target crypt --showkey ${devmapper} | /usr/bin/cut -f5 -d\" \" | /usr/bin/xxd -r -p"
 
   if $force_format == true {
     $format_options = '--batch-mode'
@@ -75,8 +75,7 @@ define luks::device(
     $format_options = ''
   }
 
-  $node_encrypted_key = node_encrypt($key)
-  redact('key') # Redact the passed in parameter from the catalog
+  $node_encrypted_key = Sensitive($key)
 
   # Format as LUKS device if it isn't already.
   exec { $luks_format:
@@ -84,7 +83,7 @@ define luks::device(
     user        => 'root',
     unless      => "${cryptsetup_cmd} isLuks ${device}",
     environment => "CRYPTKEY=${node_encrypted_key}",
-    require     => Class['luks'],
+    require     => Package[$luks::package],
   }
 
   # Open the LUKS device.
@@ -100,7 +99,7 @@ define luks::device(
   # Key change. Will only work if device currently open.
   # Currently will only add a changed key, old one will remain until manually removed.
   exec { $luks_keychange:
-    command     => "bash -c '${cryptsetup_key_cmd} luksAddKey --master-key-file <(${master_key_cmd}) ${device} -'",
+    command     => "/usr/bin/bash -c '${cryptsetup_key_cmd} luksAddKey --master-key-file <(${master_key_cmd}) ${device} -'",
     user        => 'root',
     unless      => "${cryptsetup_key_cmd} luksDump ${device} --dump-master-key --batch-mode > /dev/null",
     environment => "CRYPTKEY=${node_encrypted_key}",
