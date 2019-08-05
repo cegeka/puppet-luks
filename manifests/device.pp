@@ -21,6 +21,10 @@
 # [*key*]
 #  The encryption key for the LUKS device.
 #
+# [*allow_add_key*]
+#  Default FALSE.
+#  When true, a new or updated PIM secret will be added as an extra decryption key.
+#
 # [*base64*]
 #  Set to true if the key is base64-encoded (necessary for encryption keys
 #  with binary data); defaults to false.
@@ -49,6 +53,7 @@ define luks::device(
   $base64 = false,
   $mapper = $name,
   $force_format = false,
+  $allow_add_key = false,
 ) {
   # Ensure LUKS is available.
   require luks
@@ -75,14 +80,12 @@ define luks::device(
     $format_options = ''
   }
 
-  $node_encrypted_key = Sensitive($key)
-
   # Format as LUKS device if it isn't already.
   exec { $luks_format:
     command     => "${cryptsetup_key_cmd} luksFormat ${format_options} ${device}",
     user        => 'root',
     unless      => "${cryptsetup_cmd} isLuks ${device}",
-    environment => "CRYPTKEY=${node_encrypted_key}",
+    environment => "CRYPTKEY=${key}",
     require     => Package[$luks::package],
   }
 
@@ -91,18 +94,20 @@ define luks::device(
     command     => "${cryptsetup_key_cmd} luksOpen ${device} ${mapper}",
     user        => 'root',
     onlyif      => "/usr/bin/test ! -b ${devmapper}", # Check devmapper is a block device
-    environment => "CRYPTKEY=${node_encrypted_key}",
+    environment => "CRYPTKEY=${key}",
     creates     => $devmapper,
     require     => Exec[$luks_format],
   }
 
-  # Key change. Will only work if device currently open.
-  # Currently will only add a changed key, old one will remain until manually removed.
-  exec { $luks_keychange:
-    command     => "/usr/bin/bash -c '${cryptsetup_key_cmd} luksAddKey --master-key-file <(${master_key_cmd}) ${device} -'",
-    user        => 'root',
-    unless      => "${cryptsetup_key_cmd} luksDump ${device} --dump-master-key --batch-mode > /dev/null",
-    environment => "CRYPTKEY=${node_encrypted_key}",
-    require     => Exec[$luks_open],
+  if $allow_add_key {
+    # Key change. Will only work if device currently open.
+    # Currently will only add a changed key, old one will remain until manually removed.
+    exec { $luks_keychange:
+      command     => "/usr/bin/bash -c '${cryptsetup_key_cmd} luksAddKey --master-key-file <(${master_key_cmd}) ${device} -'",
+      user        => 'root',
+      unless      => "${cryptsetup_key_cmd} luksDump ${device} --dump-master-key --batch-mode > /dev/null",
+      environment => "CRYPTKEY=${key}",
+      require     => Exec[$luks_open],
+    }
   }
 }
