@@ -6,7 +6,7 @@ class luks::params {
     /(5|6)/: {
       $packages = ['cryptsetup-luks','vim-common']
     }
-    /7/: {
+    /(7|8)/: {
       $packages = ['cryptsetup','vim-common']
     }
   }
