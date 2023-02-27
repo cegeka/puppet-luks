@@ -2,12 +2,12 @@
 # @api private
 class luks::params {
   $version = 'present'
-  case $::operatingsystemmajrelease {
-    /(5|6)/: {
-      $packages = ['cryptsetup-luks','vim-common']
+  case $::os[release][major] {
+    '5','6': {
+      $packages = ['cryptsetup-luks']
     }
-    /(7|8)/: {
-      $packages = ['cryptsetup','vim-common']
+    '7','8','9': {
+      $packages = ['cryptsetup']
     }
   }
 }
