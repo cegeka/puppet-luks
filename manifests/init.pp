@@ -51,7 +51,7 @@ class luks(
   Array $package = $luks::params::packages,
 ) inherits luks::params {
 
-  ensure_packages($package, {
+  stdlib::ensure_packages($package, {
     'ensure' => $ensure
     }
   )
