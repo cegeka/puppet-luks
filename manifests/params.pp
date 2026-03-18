@@ -6,7 +6,7 @@ class luks::params {
     '5','6': {
       $packages = ['cryptsetup-luks']
     }
-    '7','8','9': {
+    '7','8','9','10': {
       $packages = ['cryptsetup']
     }
   }
